@@ -1,5 +1,4 @@
 use futures::{future::try_join,TryFutureExt};
-//#![feature(async_await)]
 use tokio::net::{TcpStream, TcpListener};
 use tokio::prelude::*;
 
@@ -15,35 +14,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("client from {}", sock_addr);
             tokio::spawn(async move {
                 let addr = "127.0.0.1:8080".parse().unwrap();
-                let server = TcpStream::connect(&addr).await.unwrap();
 
-                let (mut cr, mut cw) = client.split();
-                let (mut sr, mut sw) = server.split();
+                if let Ok(server) = TcpStream::connect(&addr).await {
+                    let (mut cr, mut cw) = client.split();
+                    let (mut sr, mut sw) = server.split();
 
-                let client_to_server = cr
-                    .copy(&mut sw)
-                    .map(|bytes|{
-                        if let Ok(n) = bytes {
-                            println!("Copyed: {}", n)
-                        }
-                        bytes
-                    })
+                    let client_to_server = cr
+                        .copy(&mut sw)
+                        .map(|bytes|{
+                            if let Ok(n) = bytes {
+                                println!("Copyed: {}", n)
+                            }
+                            bytes
+                        })
                     .map_err(|err| {
                         println!("err {} for client {}", err, sock_addr);
                     });
 
-                let server_to_client = sr
-                    .copy(&mut cw)
-                    .map(|bytes|{
-                        if let Ok(n) = bytes {
-                            println!("Copyed: {}", n)
-                        }
-                        bytes
-                    })
+                    let server_to_client = sr
+                        .copy(&mut cw)
+                        .map(|bytes|{
+                            if let Ok(n) = bytes {
+                                println!("Copyed: {}", n)
+                            }
+                            bytes
+                        })
                     .map_err(|err| {
                         println!("err {} for client {}", err, sock_addr);
                     });
-                let (_client_to_server, _server_to_client) = try_join(client_to_server, server_to_client).await.unwrap();
+                    try_join(client_to_server, server_to_client).await;
+                } else {
+                    println!("fail connect to server");
+                }
+                //let (_client_to_server, _server_to_client) = try_join(client_to_server, server_to_client).await.();
             });
         }
     }
